@@ -368,7 +368,9 @@ int puts(const char* s)
 	return result;
 }
 
+#ifdef USE_ERRNO
 void perror(const char* msg)
 {
 	printf("%s: %d\n", msg, errno);
 }
+#endif

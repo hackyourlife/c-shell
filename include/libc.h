@@ -9,16 +9,23 @@
 #define LONG64		1
 #define	PTRSZ		uint64_t
 
-#define	SYS_exit	60
 #define	SYS_read	0
 #define	SYS_write	1
 #define	SYS_open	2
 #define	SYS_close	3
+#define	SYS_stat	4
+#define	SYS_fstat	5
+#define	SYS_lstat	6
 #define	SYS_lseek	8
 #define	SYS_mmap	9
 #define SYS_mprotect	10
 #define	SYS_munmap	11
+#define	SYS_readv	19
+#define	SYS_writev	20
+#define	SYS_execve	59
+#define	SYS_exit	60
 #define	SYS_uname	63
+#define	SYS_getdents	78
 #define	SYS_getcwd	79
 #define	SYS_mkdir	83
 #define	SYS_rmdir	84
@@ -31,11 +38,27 @@
 #error "Unsupported architecture"
 #endif
 
-extern int errno;
-
 #define	__ssc(x) ((PTRSZ) (x))
 
+#if defined(__x86_64__)
+#define	O_ACCMODE	00000003
 #define	O_RDONLY	00000000
+#define	O_WRONLY	00000001
+#define	O_RDWR		00000002
+#define	O_CREAT		00000100
+#define	O_EXCL		00000200
+#define	O_NOCTTY	00000400
+#define	O_TRUNC		00001000
+#define	O_APPEND	00002000
+#define	O_NONBLOCK	00004000
+#define	O_DSYNC		00010000
+#define	FASYNC		00020000
+#define	O_DIRECT	00040000
+#define	O_LARGEFILE	00100000
+#define	O_DIRECTORY	00200000
+#define	O_NOFOLLOW	00400000
+#define	O_NOATIME	01000000
+#define	O_CLOEXEC	02000000
 
 #define	MAP_FAILED	((void *) -1)
 
@@ -57,21 +80,108 @@ extern int errno;
 #define	EBADF		9
 #define	EINVAL		22
 #define	ENOSYS		38
+#endif
+
+#define	DT_UNKNOWN	0
+#define	DT_FIFO		1
+#define	DT_CHR		2
+#define	DT_DIR		4
+#define	DT_BLK		6
+#define	DT_REG		8
+#define	DT_LNK		10
+#define	DT_SOCK		12
+#define	DT_WHT		14
+
+#define	S_IFMT		00170000
+#define	S_IFSOCK	 0140000
+#define	S_IFLNK		 0120000
+#define	S_IFREG		 0100000
+#define	S_IFBLK		 0060000
+#define	S_IFDIR		 0040000
+#define	S_IFCHR		 0020000
+#define	S_IFIFO		 0010000
+#define	S_ISUID		 0004000
+#define	S_ISGID		 0002000
+#define	S_ISVTX		 0001000
+
+#define	S_ISLNK(m)	(((m) & S_IFMT) == S_IFLNK)
+#define	S_ISREG(m)	(((m) & S_IFMT) == S_IFREG)
+#define	S_ISDIR(m)	(((m) & S_IFMT) == S_IFDIR)
+#define	S_ISCHR(m)	(((m) & S_IFMT) == S_IFCHR)
+#define	S_ISBLK(m)	(((m) & S_IFMT) == S_IFBLK)
+#define	S_ISFIFO(m)	(((m) & S_IFMT) == S_IFIFO)
+#define	S_ISSOCK(m)	(((m) & S_IFMT) == S_IFSOCK)
+
+#define	S_IRWXU		00700
+#define	S_IRUSR		00400
+#define	S_IWUSR		00200
+#define	S_IXUSR		00100
+
+#define	S_IRWXG		00070
+#define	S_IRGRP		00040
+#define	S_IWGRP		00020
+#define	S_IXGRP		00010
+
+#define	S_IRWXO		00007
+#define	S_IROTH		00004
+#define	S_IWOTH		00002
+#define	S_IXOTH		00001
 
 typedef int		mode_t;
 typedef long		ssize_t;
 typedef long		off_t;
 
 struct utsname {
-	char	sysname[65];
-	char	nodename[65];
-	char	release[65];
-	char	version[65];
-	char	machine[65];
-	char	domainname[65];
+	char		sysname[65];
+	char		nodename[65];
+	char		release[65];
+	char		version[65];
+	char		machine[65];
+	char		domainname[65];
 };
 
-#define	ENTRY() __attribute__((section(".entrypoint"))) void _start(void)
+struct dirent {
+	unsigned long	d_ino;
+	unsigned long	d_off;
+	unsigned short	d_reclen;
+	char		d_name[];
+	/* char		d_type; // offset is (d_reclen - 1) */
+};
+
+struct iovec {
+	void*		iov_base;
+	size_t		iov_len;
+};
+
+struct stat {
+	unsigned long	st_dev;
+	unsigned long	st_ino;
+	unsigned long	st_nlink;
+
+	unsigned int	st_mode;
+	unsigned int	st_uid;
+	unsigned int	st_gid;
+	unsigned int	__pad0;
+	unsigned long	st_rdev;
+	long		st_size;
+	long		st_blksize;
+	long		st_blocks; /* Number 512-byte blocks allocated */
+
+	unsigned long	st_atime;
+	unsigned long	st_atime_nsec;
+	unsigned long	st_mtime;
+	unsigned long	st_mtime_nsec;
+	unsigned long	st_ctime;
+	unsigned long	st_ctime_nsec;
+	long		__unused[3];
+};
+
+#ifdef USE_ERRNO
+extern int errno;
+#endif
+
+#define	ENTRY() __attribute__((section(".entrypoint"))) \
+	_Noreturn void _start(void)
 
 /* syscall helpers */
 #ifdef __x86_64__
@@ -147,6 +257,7 @@ static inline long __syscall6(long id, long a1, long a2, long a3, long a4,
 #define __SYSCALL_6(n, a, b, c, d, e, f) \
 	__syscall6(__ssc(n), __ssc(a), __ssc(b), __ssc(c), __ssc(d), __ssc(e), __ssc(f));
 
+#ifdef USE_ERRNO
 #define __SYSCALL_RET(result) { \
 	if(result < 0) { \
 		errno = -result; \
@@ -154,6 +265,11 @@ static inline long __syscall6(long id, long a1, long a2, long a3, long a4,
 	} \
 	return result; \
 }
+#else
+#define __SYSCALL_RET(result) { \
+	return result; \
+}
+#endif
 
 #define __SYSCALL_0P(id) { \
 	long result = __SYSCALL_0(id); \
@@ -180,8 +296,6 @@ static inline long __syscall6(long id, long a1, long a2, long a3, long a4,
 	__SYSCALL_RET(result); \
 }
 
-long syscall(long number, ...);
-
 /* posix/libc functions */
 static inline ssize_t read(int fd, void *buf, size_t count)
 {
@@ -193,12 +307,9 @@ static inline ssize_t write(int fd, const void *buf, size_t count)
 	__SYSCALL_3P(SYS_write, fd, buf, count);
 }
 
-static inline int open(const char *filename, int flags, ...)
+static inline int open(const char *filename, int flags)
 {
-	va_list args;
-	va_start(args, flags);
-	__SYSCALL_3P(SYS_open, filename, flags, va_arg(args, mode_t));
-	va_end(args);
+	__SYSCALL_3P(SYS_open, filename, flags, 0644);
 }
 
 static inline int close(int fd)
@@ -211,36 +322,40 @@ static inline long lseek(int fd, off_t offset, int whence)
 	__SYSCALL_3P(SYS_lseek, fd, offset, whence);
 }
 
-#if 0
-static inline ssize_t readv(int fd, const struct iovec *iov, int iovcnt)
+static inline ssize_t readv(int fd, const struct iovec* iov, int iovcnt)
 {
 	__SYSCALL_3P(SYS_readv, fd, iov, iovcnt);
 }
 
-static inline ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
+static inline ssize_t writev(int fd, const struct iovec* iov, int iovcnt)
 {
 	__SYSCALL_3P(SYS_writev, fd, iov, iovcnt);
 }
-#endif
 
-static inline char *getcwd(char *buf, size_t size)
+static inline char* getcwd(char* buf, size_t size)
 {
 	int64_t result = __SYSCALL_2(SYS_getcwd, buf, size);
+#ifdef USE_ERRNO
 	if(result < 0) {
 		errno = -result;
 		return NULL;
 	}
 	return buf;
+#else
+	return (char*) result;
+#endif
 }
 
-static inline void _Exit(int ec)
+static inline _Noreturn void _Exit(int ec)
 {
 	__SYSCALL_1(SYS_exit_group, ec);
+	while(1);
 }
 
-static inline void exit(int ec)
+static inline _Noreturn void exit(int ec)
 {
 	__SYSCALL_1(SYS_exit, ec);
+	while(1);
 }
 
 static inline int mkdir(const char *path, mode_t mode)
@@ -281,10 +396,12 @@ static inline int getegid(void)
 static inline void* mmap(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 {
 	long result = __SYSCALL_6(SYS_mmap, addr, len, prot, flags, fildes, off);
+#ifdef USE_ERRNO
 	if(result < 0) {
 		errno = -result;
 		return MAP_FAILED;
 	}
+#endif
 	return (void*) result;
 }
 
@@ -297,6 +414,34 @@ static inline int mprotect(void *addr, size_t len, int prot)
 {
 	__SYSCALL_3P(SYS_mprotect, addr, len, prot);
 }
+
+static inline long getdents(unsigned int fd, struct dirent* dirp, unsigned int count)
+{
+	__SYSCALL_3P(SYS_getdents, fd, dirp, count);
+}
+
+static inline int execve(const char* pathname, char* const argv[], char* const envp[])
+{
+	__SYSCALL_3P(SYS_execve, pathname, argv, envp);
+}
+
+static inline int stat(const char* restrict pathname,
+		struct stat* restrict statbuf)
+{
+	__SYSCALL_2P(SYS_stat, pathname, statbuf);
+}
+
+static inline int fstat(int fd, struct stat* statbuf)
+{
+	__SYSCALL_2P(SYS_fstat, fd, statbuf);
+}
+
+static inline int lstat(const char* restrict pathname,
+		struct stat* restrict statbuf)
+{
+	__SYSCALL_2P(SYS_lstat, pathname, statbuf);
+}
+
 
 /* pure userspace functions */
 static inline int strlen(const char *s)
@@ -337,14 +482,16 @@ static inline int memcmp(const void *s1, const void *s2, size_t n)
 	return 0;
 }
 
-int puts(const char *s);
-int print(const char* s);
-int sprintf(char *buf, const char *fmt, ...);
-int printf(const char *fmt, ...);
-void perror(const char *msg);
+int	puts(const char *s);
+int	print(const char* s);
+int	sprintf(char *buf, const char *fmt, ...);
+int	printf(const char *fmt, ...);
+#ifdef USE_ERRNO
+void	perror(const char* msg);
+#endif
 
-void *malloc(size_t size);
-void free(void *ptr);
+void*	malloc(size_t size);
+void	free(void *ptr);
 
 long random(void);
 

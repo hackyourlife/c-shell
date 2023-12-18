@@ -82,7 +82,6 @@ all: $(TFILES) loader.elf
 
 loader.elf:
 	@echo "[CCLD]  $(notdir $@)"
-	@echo "$@"
 	@$(CC) -MMD -MP -MF $(DEPSDIR)/$*.d -O3 -Wall ../loader/loader.c -o $@
 
 %.o: %.c

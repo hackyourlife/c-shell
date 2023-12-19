@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	printf("Sellcode address: %p (%lu bytes)\n", shellcode, size);
+	printf("Shellcode address: %p (%lu bytes)\n", shellcode, size);
 
 	FILE* in = fopen(filename, "rb");
 	if(fread(shellcode, buf.st_size, 1, in) < 1) {
